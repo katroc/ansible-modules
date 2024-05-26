@@ -15,6 +15,7 @@ def run_command(command, input_data=None):
 
 def filter_password_prompts(output):
     # Use a regex to filter out any line that starts with "Password for"
+    # This is used to tidy stdout when running 'realm join'
     return re.sub(r'^Password for .+: $', '', output, flags=re.MULTILINE)
 
 def parse_realm_details(realm_details_str):
@@ -68,7 +69,7 @@ def main():
 
         if rc != 0:
             if "Already joined to this domain" in stderr:
-                module.exit_json(changed=False, msg=f"System is already joined to {domain}", stdout=stdout, stderr="")
+                module.exit_json(changed=False, msg=f"Host is already joined to {domain}", stdout=stdout, stderr="")
             else:
                 module.fail_json(msg="Failed to join realm", stderr=stderr, stdout=stdout, rc=rc)
 
@@ -77,7 +78,7 @@ def main():
             module.fail_json(msg="Failed to retrieve realm details after join", stderr=stderr, stdout=realm_details_str, rc=rc)
 
         realm = parse_realm_details(realm_details_str)
-        module.exit_json(changed=True, msg=f"Successfully joined to {domain}", stdout=stdout, stderr=stderr, realm=realm)
+        module.exit_json(changed=True, msg=f"Successfully joined {domain}", stdout=stdout, stderr=stderr, realm=realm)
 
     elif state == 'absent':
         cmd = ['realm', 'leave', domain]
@@ -85,7 +86,7 @@ def main():
 
         if rc != 0:
             if "Not joined to this domain" in stderr:
-                module.exit_json(changed=False, msg=f"System is not joined to {domain}", stdout=stdout, stderr="")
+                module.exit_json(changed=False, msg=f"Host is not joined to {domain}", stdout=stdout, stderr="")
             else:
                 module.fail_json(msg="Failed to leave realm", stderr=stderr, stdout=stdout, rc=rc)
 
