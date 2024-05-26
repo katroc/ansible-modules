@@ -38,7 +38,7 @@ def main():
     if rc != 0:
         module.fail_json(msg="Failed to leave realm", stderr=stderr, stdout=stdout, rc=rc)
     
-    module.exit_json(changed=True, msg="Successfully left the realm", stdout=stdout, stderr=stderr)
+    module.exit_json(changed=True, msg="Successfully left realm", stdout=stdout, stderr=stderr)
 
 if __name__ == '__main__':
     main()

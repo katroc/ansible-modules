@@ -60,7 +60,7 @@ def main():
 
     if rc != 0:
         if "Already joined to this domain" in stderr:
-            module.exit_json(changed=False, msg="System is already joined to the realm", stdout=stdout, stderr="")
+            module.exit_json(changed=False, msg=f"System is already joined to {domain}", stdout=stdout, stderr="")
         else:
             module.fail_json(msg="Failed to join realm", stderr=stderr, stdout=stdout, rc=rc)
 
