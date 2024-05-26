@@ -42,7 +42,6 @@ def main():
             user=dict(type='str', required=True),
             password=dict(type='str', required=True, no_log=True),
             computer_ou=dict(type='str', required=False),
-            manage_sssd=dict(type='bool', default=False),
             state=dict(type='str', choices=['present', 'absent'], default='present')
         ),
         supports_check_mode=True
@@ -52,7 +51,6 @@ def main():
     user = module.params['user']
     password = module.params['password']
     computer_ou = module.params.get('computer_ou')
-    manage_sssd = module.params['manage_sssd']
     state = module.params['state']
 
     if module.check_mode:
@@ -62,8 +60,6 @@ def main():
         cmd = ['realm', 'join', '--user', user, domain]
         if computer_ou:
             cmd.extend(['--computer-ou', computer_ou])
-        if manage_sssd:
-            cmd.append('--automatic-id-mapping=no')
 
         stdout, stderr, rc = run_command(cmd, input_data=password)
 
