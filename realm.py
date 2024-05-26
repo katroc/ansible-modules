@@ -1,5 +1,72 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import, division, print_function
+__metaclass__ = type
+
+DOCUMENTATION = '''
+---
+module: realm
+short_description: Runs the realm command to join or leave an Active Directory domain
+description:
+    - Runs the realm command to join or leave an Active Directory domain.
+extends_documentation_fragment:
+    - community.general.attributes
+attributes:
+    check_mode:
+        support: full
+    diff_mode:
+        support: none
+options:
+    domain:
+        type: str
+        description:
+            - the domain to join or leave
+        required: true
+    user:
+        type: str
+        description:
+            - the user to use for joining the domain
+        required: false
+    password:
+        type: str
+        description:
+            - the password to use for the domain account
+    state:
+        type: str
+        description:
+            - the state of the value for the key.
+            - can be present or absent
+        required: true
+        choices: [ present, absent ]
+requirements:
+    - sssd 
+    - realmd 
+    - oddjob 
+    - oddjob-mkhomedir 
+    - adcli 
+    - samba-common 
+    - samba-common-tools 
+    - krb5-workstation 
+    - openldap-clients
+    - python3-pip
+author:
+    - ??? <???@???>
+'''
+
+EXAMPLES = '''
+- name: Join Domain
+  realm:
+    domain: example.com
+    user: example_user
+    password: example_password
+    state: present
+    
+- name: Leave Domain
+  realm:
+    domain: example.com
+    state: absent
+'''
+
 import subprocess
 import re
 from ansible.module_utils.basic import AnsibleModule
@@ -39,8 +106,8 @@ def main():
     module = AnsibleModule(
         argument_spec=dict(
             domain=dict(type='str', required=True),
-            user=dict(type='str', required=True),
-            password=dict(type='str', required=True, no_log=True),
+            user=dict(type='str', required=False),
+            password=dict(type='str', required=False, no_log=True),
             computer_ou=dict(type='str', required=False),
             state=dict(type='str', choices=['present', 'absent'], default='present')
         ),
