@@ -1,15 +1,14 @@
 #!/usr/bin/python
 
-from ansible.module_utils.basic import AnsibleModule
 import subprocess
+from ansible.module_utils.basic import AnsibleModule
 
-def run_command(module, command):
-    """Run a shell command and return the output, error, and exit code."""
+def run_command(command):
     try:
         result = subprocess.run(command, text=True, capture_output=True, check=True)
-        return result.stdout, result.stderr, result.returncode
+        return result.stdout.strip(), result.stderr.strip(), result.returncode
     except subprocess.CalledProcessError as e:
-        return e.stdout, e.stderr, e.returncode  # Capture the exception and return its attributes
+        return e.stdout.strip(), e.stderr.strip(), e.returncode
 
 def main():
     module = AnsibleModule(
@@ -23,18 +22,18 @@ def main():
     cmd = ['realm', 'list']
 
     # Check if the system is already part of any realm
-    stdout, stderr, rc = run_command(module, cmd)
+    stdout, stderr, rc = run_command(cmd)
 
     if rc != 0:
         module.fail_json(msg="Failed to list realms", stderr=stderr, stdout=stdout, rc=rc)
     
-    if not stdout.strip():
+    if not stdout:
         # No realm to leave, exit with a success message
         module.exit_json(changed=False, msg="No realm to leave", stdout=stdout, stderr=stderr)
     
     # Leave the realm
     cmd = ['realm', 'leave']
-    stdout, stderr, rc = run_command(module, cmd)
+    stdout, stderr, rc = run_command(cmd)
     
     if rc != 0:
         module.fail_json(msg="Failed to leave realm", stderr=stderr, stdout=stdout, rc=rc)

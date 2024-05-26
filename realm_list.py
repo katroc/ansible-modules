@@ -1,25 +1,23 @@
 #!/usr/bin/python
 
-from ansible.module_utils.basic import AnsibleModule
 import subprocess
+from ansible.module_utils.basic import AnsibleModule
 
-def run_command(module, command):
+def run_command(command):
     """Run a shell command and return the output, error, and exit code."""
     try:
         result = subprocess.run(command, text=True, capture_output=True, check=True)
-        return result.stdout, result.stderr, result.returncode
+        return result.stdout.strip(), result.stderr.strip(), result.returncode
     except subprocess.CalledProcessError as e:
-        module.fail_json(msg="Command failed", stderr=e.stderr, stdout=e.stdout, rc=e.returncode)
+        return e.stdout.strip(), e.stderr.strip(), e.returncode
 
 def parse_realm_details(realm_details_str):
-    """Parse realm details string and return as a dictionary."""
-    lines = realm_details_str.split('\n')
     realm_details_dict = {}
-    for line in lines:
+    for line in realm_details_str.splitlines():
         parts = line.split(': ')
         if len(parts) == 2:
-            key = parts[0].strip()
-            value = parts[1].strip()
+            key, value = parts
+            key, value = key.strip(), value.strip()
             if value:
                 if key in realm_details_dict:
                     if isinstance(realm_details_dict[key], list):
@@ -41,7 +39,7 @@ def main():
 
     cmd = ['realm', 'list']
     
-    stdout, stderr, rc = run_command(module, cmd)
+    stdout, stderr, rc = run_command(cmd)
     if rc != 0:
         module.fail_json(msg="Failed to list realms", stderr=stderr, stdout=stdout, rc=rc)
     
