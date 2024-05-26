@@ -36,7 +36,7 @@ def main():
             user=dict(type='str', required=True),
             password=dict(type='str', required=True, no_log=True),
             computer_ou=dict(type='str', required=False),
-            manage_sssd=dict(type='bool', default=True)
+            manage_sssd=dict(type='bool', default=False)
         ),
         supports_check_mode=True
     )
