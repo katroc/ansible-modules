@@ -3,7 +3,52 @@ from ansible.module_utils.basic import AnsibleModule
 import requests
 from requests_ntlm import HttpNtlmAuth
 import re
-import warnings
+
+DOCUMENTATION = '''
+---
+module: adcs_ndes_otp
+short_description: Retrieve OTP from ADCS NDES service.
+description:
+    - This module retrieves a one-time password (OTP) from the Network Device Enrollment Service (NDES) of an Active Directory Certificate Services (ADCS) server.
+author: 
+    - Your Name
+options:
+    url:
+        description:
+            - The URL of the NDES service.
+        required: true
+        type: str
+    username:
+        description:
+            - The username for authentication.
+        required: true
+        type: str
+    password:
+        description:
+            - The password for authentication.
+        required: true
+        type: str
+    domain:
+        description:
+            - The domain of the user account.
+        required: true
+        type: str
+    ca_cert:
+        description:
+            - The path to the CA certificate file for SSL verification.
+        required: false
+        type: str
+'''
+
+EXAMPLES = '''
+- name: Retrieve OTP from ADCS NDES service
+  adcs_ndes_otp:
+    url: "http://ca/certsrv/mscep_admin"
+    username: "username"
+    password: "password"
+    domain: "example.com"
+  register: otp_result
+'''
 
 def get_ndes_otp(url, username, password, domain, ca_cert=None):
     try:
@@ -30,7 +75,8 @@ def main():
             password=dict(type='str', required=True, no_log=True),
             domain=dict(type='str', required=True),
             ca_cert=dict(type='str', default=None)
-        )
+        ),
+        supports_check_mode=False
     )
 
     url = module.params['url']
