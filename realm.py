@@ -70,9 +70,9 @@ import re
 from ansible.module_utils.basic import AnsibleModule, sanitize_keys
 
 def filter_password_prompts(output):
-    # Use a regex to filter out any line that starts with "Password for"
-    # This is used to tidy stdout when running 'realm join'
-    return re.sub(r'^Password for .+: $', '', output, flags=re.MULTILINE)
+    filtered_output = re.sub(r'^Password for .+: $', '', output, flags=re.MULTILINE)
+    # Strip leading/trailing whitespace and remove empty lines
+    return '\n'.join([line for line in filtered_output.splitlines() if line.strip()])
 
 def parse_realm_details(realm_details_str):
     realm_details_dict = {}
@@ -112,40 +112,63 @@ def main():
     if module.check_mode:
         module.exit_json(changed=True)
 
+    result = {'changed': False, 'msg': '', 'stdout': '', 'stderr': '', 'realm': {}, 'cmd': ''}
+
     if state == 'present':
         cmd = ['realm', 'join', '--user', user, domain]
         if computer_ou:
             cmd.extend(['--computer-ou', computer_ou])
+        result['cmd'] = ' '.join(cmd)
 
         rc, stdout, stderr = module.run_command(cmd, data=password)
-
         stdout = filter_password_prompts(stdout)
+        result['stdout'] = stdout
+
         if rc != 0:
             if "Already joined to this domain" in stderr:
-                module.exit_json(changed=False, msg=f"Host is already joined to {domain}", stdout=stdout, stderr="")
+                result['msg'] = f"Host is already joined to {domain}"
+                module.exit_json(**sanitize_keys(result, no_log_strings=[]))
             else:
-                module.fail_json(msg="Failed to join realm", stderr=stderr, stdout=stdout, rc=rc)
+                result['msg'] = "Failed to join realm"
+                result['stderr'] = stderr
+                result['rc'] = rc
+                module.fail_json(**sanitize_keys(result, no_log_strings=[]))
 
         rc, realm_details_str, stderr = module.run_command(['realm', 'list'])
         if rc != 0:
-            module.fail_json(msg="Failed to retrieve realm details after join", stderr=stderr, stdout=realm_details_str, rc=rc)
+            result['msg'] = "Failed to retrieve realm details after join"
+            result['realm'] = realm_details_str
+            result['stderr'] = stderr
+            result['rc'] = rc
+            module.fail_json(**sanitize_keys(result, no_log_strings=[]))
 
         realm = parse_realm_details(realm_details_str)
-        realm = sanitize_keys(realm, no_log_strings=[])
-        module.exit_json(changed=True, msg=f"Successfully joined {domain}", stdout=stdout, stderr=stderr, realm=realm)
+        result['changed'] = True
+        result['msg'] = f"Successfully joined {domain}"
+        result['realm'] = sanitize_keys(realm, no_log_strings=[])
+        module.exit_json(**sanitize_keys(result, no_log_strings=[]))
 
     elif state == 'absent':
         cmd = ['realm', 'leave', domain]
-        rc, stdout, stderr = module.run_command(cmd, data=password)
+        result['cmd'] = ' '.join(cmd)
 
+        rc, stdout, stderr = module.run_command(cmd, data=password)
         stdout = filter_password_prompts(stdout)
+        result['stdout'] = stdout
+
         if rc != 0:
             if "Not joined to this domain" in stderr:
-                module.exit_json(changed=False, msg=f"Host is not joined to {domain}", stdout=stdout, stderr="")
+                result['msg'] = f"Host is not joined to {domain}"
+                module.exit_json(**sanitize_keys(result, no_log_strings=[]))
             else:
-                module.fail_json(msg="Failed to leave realm", stderr=stderr, stdout=stdout, rc=rc)
+                result['msg'] = "Failed to leave realm"
+                result['stderr'] = stderr
+                result['rc'] = rc
+                module.fail_json(**sanitize_keys(result, no_log_strings=[]))
 
-        module.exit_json(changed=True, msg=f"Successfully left {domain}", stdout=stdout, stderr=stderr)
+        result['changed'] = True
+        result['msg'] = f"Successfully left {domain}"
+        module.exit_json(**sanitize_keys(result, no_log_strings=[]))
 
 if __name__ == '__main__':
     main()
