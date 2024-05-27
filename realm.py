@@ -71,7 +71,6 @@ from ansible.module_utils.basic import AnsibleModule, sanitize_keys
 
 def filter_password_prompts(output):
     filtered_output = re.sub(r'^Password for .+: $', '', output, flags=re.MULTILINE)
-    # Strip leading/trailing whitespace and remove empty lines
     return '\n'.join([line for line in filtered_output.splitlines() if line.strip()])
 
 def parse_realm_details(realm_details_str):
@@ -90,6 +89,65 @@ def parse_realm_details(realm_details_str):
                 else:
                     realm_details_dict[key] = value
     return realm_details_dict
+
+def set_result(result, changed=False, msg='', stdout='', stderr='', realm=None, cmd='', rc=None):
+    result.update({
+        'changed': changed,
+        'msg': msg,
+        'stdout': stdout,
+        'stderr': stderr,
+        'realm': realm if realm is not None else {},
+        'cmd': cmd,
+        'rc': rc,
+    })
+
+def join_realm(module, result, domain, user, password, computer_ou):
+    cmd = ['realm', 'join', '--user', user, domain]
+    if computer_ou:
+        cmd.extend(['--computer-ou', computer_ou])
+    result['cmd'] = ' '.join(cmd)
+
+    rc, stdout, stderr = module.run_command(cmd, data=password)
+    stdout = filter_password_prompts(stdout)
+    result['stdout'] = stdout
+    result['stderr'] = stderr
+
+    if rc != 0:
+        if "Already joined to this domain" in stderr or "Already joined" in stdout:
+            set_result(result, msg=f"Host is already joined to {domain}", cmd=result['cmd'], rc=0)
+            module.exit_json(**sanitize_keys(result, no_log_strings=[]))
+        else:
+            set_result(result, msg="Failed to join realm", stderr=stderr, cmd=result['cmd'], rc=rc)
+            module.fail_json(**sanitize_keys(result, no_log_strings=[]))
+
+    rc, realm_details_str, stderr = module.run_command(['realm', 'list'])
+    if rc != 0:
+        set_result(result, msg="Failed to retrieve realm details after join", stderr=stderr, cmd=result['cmd'], rc=rc)
+        module.fail_json(**sanitize_keys(result, no_log_strings=[]))
+
+    realm = parse_realm_details(realm_details_str)
+    set_result(result, changed=True, msg=f"Successfully joined {domain}", realm=sanitize_keys(realm, no_log_strings=[]), cmd=result['cmd'], rc=0)
+    module.exit_json(**sanitize_keys(result, no_log_strings=[]))
+
+def leave_realm(module, result, domain, password):
+    cmd = ['realm', 'leave', domain]
+    result['cmd'] = ' '.join(cmd)
+
+    rc, stdout, stderr = module.run_command(cmd, data=password)
+    stdout = filter_password_prompts(stdout)
+    result['stdout'] = stdout
+    result['stderr'] = stderr
+
+    if rc != 0:
+        if "Not joined to this domain" in stderr:
+            set_result(result, msg=f"Host is not joined to {domain}", cmd=result['cmd'], rc=0)
+            module.exit_json(**sanitize_keys(result, no_log_strings=[]))
+        else:
+            set_result(result, msg="Failed to leave realm", stderr=stderr, cmd=result['cmd'], rc=rc)
+            module.fail_json(**sanitize_keys(result, no_log_strings=[]))
+
+    set_result(result, changed=True, msg=f"Successfully left {domain}", cmd=result['cmd'], rc=0)
+    module.exit_json(**sanitize_keys(result, no_log_strings=[]))
 
 def main():
     module = AnsibleModule(
@@ -110,65 +168,14 @@ def main():
     state = module.params['state']
 
     if module.check_mode:
-        module.exit_json(changed=True)
+        module.exit_json(changed=False, msg="Check mode: no changes made")
 
-    result = {'changed': False, 'msg': '', 'stdout': '', 'stderr': '', 'realm': {}, 'cmd': ''}
+    result = {'changed': False, 'msg': '', 'stdout': '', 'stderr': '', 'realm': {}, 'cmd': '', 'rc': 0}
 
     if state == 'present':
-        cmd = ['realm', 'join', '--user', user, domain]
-        if computer_ou:
-            cmd.extend(['--computer-ou', computer_ou])
-        result['cmd'] = ' '.join(cmd)
-
-        rc, stdout, stderr = module.run_command(cmd, data=password)
-        stdout = filter_password_prompts(stdout)
-        result['stdout'] = stdout
-
-        if rc != 0:
-            if "Already joined to this domain" in stderr:
-                result['msg'] = f"Host is already joined to {domain}"
-                module.exit_json(**sanitize_keys(result, no_log_strings=[]))
-            else:
-                result['msg'] = "Failed to join realm"
-                result['stderr'] = stderr
-                result['rc'] = rc
-                module.fail_json(**sanitize_keys(result, no_log_strings=[]))
-
-        rc, realm_details_str, stderr = module.run_command(['realm', 'list'])
-        if rc != 0:
-            result['msg'] = "Failed to retrieve realm details after join"
-            result['realm'] = realm_details_str
-            result['stderr'] = stderr
-            result['rc'] = rc
-            module.fail_json(**sanitize_keys(result, no_log_strings=[]))
-
-        realm = parse_realm_details(realm_details_str)
-        result['changed'] = True
-        result['msg'] = f"Successfully joined {domain}"
-        result['realm'] = sanitize_keys(realm, no_log_strings=[])
-        module.exit_json(**sanitize_keys(result, no_log_strings=[]))
-
+        join_realm(module, result, domain, user, password, computer_ou)
     elif state == 'absent':
-        cmd = ['realm', 'leave', domain]
-        result['cmd'] = ' '.join(cmd)
-
-        rc, stdout, stderr = module.run_command(cmd, data=password)
-        stdout = filter_password_prompts(stdout)
-        result['stdout'] = stdout
-
-        if rc != 0:
-            if "Not joined to this domain" in stderr:
-                result['msg'] = f"Host is not joined to {domain}"
-                module.exit_json(**sanitize_keys(result, no_log_strings=[]))
-            else:
-                result['msg'] = "Failed to leave realm"
-                result['stderr'] = stderr
-                result['rc'] = rc
-                module.fail_json(**sanitize_keys(result, no_log_strings=[]))
-
-        result['changed'] = True
-        result['msg'] = f"Successfully left {domain}"
-        module.exit_json(**sanitize_keys(result, no_log_strings=[]))
+        leave_realm(module, result, domain, password)
 
 if __name__ == '__main__':
     main()
