@@ -48,7 +48,6 @@ requirements:
     - samba-common-tools 
     - krb5-workstation 
     - openldap-clients
-    - python3-pip
 author:
     - Your Name <your.email@example.com>
 '''
@@ -67,18 +66,8 @@ EXAMPLES = '''
     state: absent
 '''
 
-import subprocess
 import re
 from ansible.module_utils.basic import AnsibleModule
-
-def run_command(command, input_data=None):
-    try:
-        result = subprocess.run(command, input=input_data, text=True, capture_output=True, check=True)
-        stdout = filter_password_prompts(result.stdout)
-        stderr = result.stderr
-        return stdout, stderr, result.returncode
-    except subprocess.CalledProcessError as e:
-        return filter_password_prompts(e.stdout), e.stderr, e.returncode
 
 def filter_password_prompts(output):
     # Use a regex to filter out any line that starts with "Password for"
@@ -128,15 +117,16 @@ def main():
         if computer_ou:
             cmd.extend(['--computer-ou', computer_ou])
 
-        stdout, stderr, rc = run_command(cmd, input_data=password)
+        rc, stdout, stderr = module.run_command(cmd, data=password)
 
+        stdout = filter_password_prompts(stdout)
         if rc != 0:
             if "Already joined to this domain" in stderr:
                 module.exit_json(changed=False, msg=f"Host is already joined to {domain}", stdout=stdout, stderr="")
             else:
                 module.fail_json(msg="Failed to join realm", stderr=stderr, stdout=stdout, rc=rc)
 
-        realm_details_str, stderr, rc = run_command(['realm', 'list'])
+        rc, realm_details_str, stderr = module.run_command(['realm', 'list'])
         if rc != 0:
             module.fail_json(msg="Failed to retrieve realm details after join", stderr=stderr, stdout=realm_details_str, rc=rc)
 
@@ -145,8 +135,9 @@ def main():
 
     elif state == 'absent':
         cmd = ['realm', 'leave', domain]
-        stdout, stderr, rc = run_command(cmd, input_data=password)
+        rc, stdout, stderr = module.run_command(cmd, data=password)
 
+        stdout = filter_password_prompts(stdout)
         if rc != 0:
             if "Not joined to this domain" in stderr:
                 module.exit_json(changed=False, msg=f"Host is not joined to {domain}", stdout=stdout, stderr="")
