@@ -49,7 +49,7 @@ requirements:
     - krb5-workstation 
     - openldap-clients
 author:
-    - Your Name <your.email@example.com>
+    - nil nil.nul@nil.com>
 '''
 
 EXAMPLES = '''
