@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 from __future__ import absolute_import, division, print_function
 __metaclass__ = type
@@ -9,8 +9,6 @@ module: realm
 short_description: Runs the realm command to join or leave an Active Directory domain
 description:
     - Runs the realm command to join or leave an Active Directory domain.
-extends_documentation_fragment:
-    - community.general.attributes
 attributes:
     check_mode:
         support: full
@@ -20,22 +18,24 @@ options:
     domain:
         type: str
         description:
-            - the domain to join or leave
+            - The domain to join or leave.
         required: true
     user:
         type: str
         description:
-            - the user to use for joining the domain
+            - The user to use for joining the domain.
         required: false
     password:
         type: str
         description:
-            - the password to use for the domain account
+            - The password to use for the domain account.
+        required: false
+        no_log: true
     state:
         type: str
         description:
-            - the state of the value for the key.
-            - can be present or absent
+            - The state of the value for the key.
+            - Can be present or absent.
         required: true
         choices: [ present, absent ]
 requirements:
@@ -50,7 +50,7 @@ requirements:
     - openldap-clients
     - python3-pip
 author:
-    - ??? <???@???>
+    - Your Name <your.email@example.com>
 '''
 
 EXAMPLES = '''
