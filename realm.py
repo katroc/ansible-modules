@@ -67,7 +67,7 @@ EXAMPLES = '''
 '''
 
 import re
-from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.basic import AnsibleModule, sanitize_keys
 
 def filter_password_prompts(output):
     # Use a regex to filter out any line that starts with "Password for"
@@ -131,6 +131,7 @@ def main():
             module.fail_json(msg="Failed to retrieve realm details after join", stderr=stderr, stdout=realm_details_str, rc=rc)
 
         realm = parse_realm_details(realm_details_str)
+        realm = sanitize_keys(realm, no_log_strings=[])
         module.exit_json(changed=True, msg=f"Successfully joined {domain}", stdout=stdout, stderr=stderr, realm=realm)
 
     elif state == 'absent':
